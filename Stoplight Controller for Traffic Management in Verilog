@@ -1,0 +1,416 @@
+// Stoplight Module for Lab 4
+//
+// Note on lights:
+// 	Each bit represents the on/off signal for a light.
+// 	Bit | Light
+// 	------------
+// 	0   | Red
+// 	1   | Yellow
+// 	2   | Green
+//==============================================================================
+
+module Stoplight(
+	input            clk,         // Clock signal
+	input            rst,         // Reset signal for FSM
+	input            car_present, // Is there a car on Prospect?
+	output reg [2:0] light_pros,  // Prospect Avenue Light
+	output reg [2:0] light_wash   // Washington Road Light
+);
+
+	// Declare Local Vars Here
+	 reg [3:0] state;
+	 reg [3:0] next_state;
+	// ...
+	
+	
+
+	// Declare State Names Here
+	localparam WGPR1 = 4'b0000;
+	localparam WGPR2 = 4'b0001;
+	localparam WGPR3 = 4'b0010;
+	localparam WGPR4 = 4'b0011;
+	localparam WYPR = 4'b0100;
+	localparam WRPG1 = 4'b0101;
+	localparam WRPG2 = 4'b0110;
+	localparam WRPG3 = 4'b0111;
+	localparam WRPG4 = 4'b1000;
+	localparam WRPY = 4'b1001;
+
+	
+
+	// Light Colors
+	localparam RED = 3'b001;
+	localparam YLW = 3'b010;
+	localparam GRN = 3'b100;
+
+	// Output Combinational Logic
+	always @( * ) begin
+		light_pros = 3'b000;
+		light_wash = 3'b000;
+
+		// Write your output logic here
+        case(state) 
+            WGPR1: begin 
+            light_wash = GRN; 
+            light_pros = RED; 
+          end 
+          
+            WGPR2: begin 
+            light_wash = GRN; 
+            light_pros = RED; 
+          end 
+          
+            WGPR3: begin 
+            light_wash = GRN; 
+            light_pros = RED; 
+          end 
+          
+           WGPR4: begin 
+            light_wash = GRN; 
+            light_pros = RED; 
+          end 
+         
+          WYPR: begin 
+            light_wash = YLW; 
+            light_pros = RED; 
+          end
+           
+          WRPG1: begin 
+            light_wash = RED; 
+            light_pros = GRN; 
+          end 
+          
+           WRPG2: begin 
+            light_wash = RED; 
+            light_pros = GRN; 
+          end 
+          
+          WRPG3: begin 
+            light_wash = RED; 
+            light_pros = GRN; 
+          end 
+         WRPG4: begin 
+            light_wash = RED; 
+            light_pros = GRN; 
+          end 
+         
+          
+          WRPY: begin 
+            light_wash = RED; 
+            light_pros = YLW; 
+          end 
+        endcase 
+      end  
+          
+       
+          
+	// Next State Combinational Logic
+	always @( * ) begin
+		// Write your Next State Logic Here
+		// next_state = ???
+		if (state == WGPR1) begin 
+		  next_state = WGPR2; 
+	    end 
+	   
+	    if (state == WGPR2) begin 
+		  next_state = WGPR3;
+		end 
+		
+		if (state == WGPR3) begin 
+		  next_state = WGPR4;
+		end
+        if (state == WGPR4) begin 
+		  
+		  if (car_present) begin 
+		      next_state = WYPR; 
+		    end  
+		  else begin
+		     next_state = WGPR4;    
+		    end
+		  		
+        end 
+        
+        if (state == WYPR) begin 
+		  next_state = WRPG1;
+		end 
+		
+		if (state == WRPG1) begin 
+		  next_state = WRPG2;  
+		end 
+		
+		if (state == WRPG2) begin 
+		  next_state = WRPG3;
+		end 
+		if (state == WRPG3) begin 
+		  next_state = WRPG4;
+		end  
+		
+		if (state == WRPG4) begin 
+		  next_state = WRPY;
+		end  
+		if (state == WRPY) begin 
+		  next_state = WGPR1;
+		end  
+	 
+	 
+	end
+
+	// State Update Sequential Logic
+	always @(posedge clk) begin
+		if (rst) begin
+			// Update state to reset state
+			state <= WGPR1;
+		end
+		else begin
+			// Update state to next state
+		 state <= next_state;
+		end
+	end
+
+endmodule
+
+//==============================================================================
+// Stoplight Testbench Module for Lab 4
+//==============================================================================
+`timescale 1ns/100ps
+
+`define ASSERT_EQ(ONE, TWO, MSG)               \
+	begin                                      \
+		if ((ONE) !== (TWO)) begin             \
+			$display("\t[FAILURE]:%s", (MSG)); \
+			errors = errors + 1;               \
+		end                                    \
+	end #0
+
+module StoplightTest;
+
+	// Local Vars
+	reg clk = 1;
+	reg rst = 0;
+	reg car = 0;
+	wire [2:0] lp, lw;
+	
+	
+
+	// Light Colors
+	localparam GRN = 3'b100;
+	localparam YLW = 3'b010;
+	localparam RED = 3'b001;
+
+	// Stoplight Module
+	Stoplight light(
+		.clk        (clk),
+		.rst        (rst),
+		.car_present(car),
+		.light_pros (lp),
+		.light_wash (lw)
+	);
+	
+	
+	
+	
+	
+
+	// Clock
+	always begin
+		#2.5 clk = ~clk;
+	end
+
+        
+	// Main Test Logic
+	initial begin
+		// Write your set of test cases here
+		
+	//initial condition
+	rst=0;
+	car=0;
+	
+	//time 1ns FMS rst goes high 
+	#1; rst=1; @(posedge clk);
+	
+	//FSM rst goes low at time 6 so now at time 10 
+	#1; rst=0; @(posedge clk);
+    #1
+	
+	// time 41
+
+    @(posedge clk);
+    @(posedge clk);
+    @(posedge clk);
+    @(posedge clk);
+    @(posedge clk);
+    @(posedge clk);
+    	#1; car=1;
+    //time 46 
+    @(posedge clk);
+    #1; car=1;
+    
+    //time 51 
+      @(posedge clk);
+       #1; car=0;
+       
+       //time 66 
+       @(posedge clk); 
+       @(posedge clk);
+       @(posedge clk);
+       #1; car=1;
+       
+       //time 71 
+    @(posedge clk); 
+    #1; car=1;  
+    //time 76 
+    @(posedge clk); 
+    #1; car=1;   
+    //time 86 
+      @(posedge clk); 
+      @(posedge clk);
+          
+      #1; car=0;    
+      //time 106
+     @(posedge clk); 
+     @(posedge clk); 
+      @(posedge clk); 
+      @(posedge clk); 
+      #1; car=1;  
+      //time 116
+       @(posedge clk); 
+        @(posedge clk);         
+    #1; car=0; 
+    //time 131
+    @(posedge clk); 
+    @(posedge clk); 
+    @(posedge clk); 
+    #1; car=1; 
+    //time 136 
+    @(posedge clk);  
+    #1; car=0;  
+  //time 140 
+    @(posedge clk);        
+   
+		$finish;
+	end
+
+endmodule
+
+//==============================================================================
+// Stoplight Testbench Module for Lab 4
+//==============================================================================
+`timescale 1ns/100ps
+
+`define ASSERT_EQ(ONE, TWO, MSG)               \
+	begin                                      \
+		if ((ONE) !== (TWO)) begin             \
+			$display("\t[FAILURE]:%s", (MSG)); \
+			errors = errors + 1;               \
+		end                                    \
+	end #0
+
+module StoplightTATest;
+
+	// Local Vars
+	reg clk = 1;
+	reg rst = 0;
+	reg car = 0;
+	reg [4:0] errors = 0;
+	wire [2:0] lp, lw;
+
+	// Light Colors
+	localparam GRN = 3'b100;
+	localparam YLW = 3'b010;
+	localparam RED = 3'b001;
+
+	// VCD Dump
+	initial begin
+		$dumpfile("StoplightTATest.vcd");
+		$dumpvars;
+	end
+
+	// Stoplight Module
+	Stoplight light(
+		.clk        (clk),
+		.rst        (rst),
+		.car_present(car),
+		.light_pros (lp),
+		.light_wash (lw)
+	);
+
+	// Clock
+	always begin
+		#2.5 clk = ~clk;
+	end
+
+	// Main Test Logic
+	initial begin
+		// Reset the controller
+		$display("\nResetting the Controller (Washington -> GREEN)...");
+		#1; rst = 1; @(posedge clk);
+		#1; rst = 0; @(posedge clk); // 10 Seconds Elapsed
+
+		// Washington should be green
+		`ASSERT_EQ(lw, GRN, "Washington light should be green after reset!");
+		`ASSERT_EQ(lp, RED, "Prospect light should be red when Washington is green!");
+
+		// Green on Washington
+		$display("\nWaiting 25 seconds (Washington -> GREEN)...");
+		@(posedge clk); // 15 Seconds Elapsed
+		@(posedge clk); // 20 Seconds Elapsed
+		@(posedge clk); // 25 Seconds Elapsed
+		@(posedge clk); // 30 Seconds Elapsed
+
+		// Washington should still be green
+		`ASSERT_EQ(lw, GRN, "Washington light should be green until a car arrives on Prospect!");
+		`ASSERT_EQ(lp, RED, "Prospect light should be red when Washington is green!");
+
+		// Car arrives on Prospect Avenue
+		$display("\nStream of cars arriving on Prospect (Washington -> YELLOW)...");
+		#1; car = 1; @(posedge clk); #1;
+
+		// Washington should be yellow
+		`ASSERT_EQ(lw, YLW, "Washington light should be yellow now that car has arrived and >=20 seconds have elapsed!");
+		`ASSERT_EQ(lp, RED, "Prospect light should be red when Washington is yellow!");
+
+		// Wait for light to change
+		$display("\nWaiting 5 seconds (Prospect -> GREEN)...");
+		@(posedge clk); #1;
+
+		// Prospect should be green
+		`ASSERT_EQ(lw, RED, "Washington light should be red while Prospect is green!");
+		`ASSERT_EQ(lp, GRN, "Prospect light should be green!");
+
+		// Green on Prospect
+		$display("\nWaiting 20 seconds (Prospect -> YELLOW)...");
+		@(posedge clk); // 5  seconds elapsed
+		@(posedge clk); // 10 seconds elapsed
+		@(posedge clk); // 15 seconds elapsed
+		@(posedge clk); // 20 seconds elapsed
+		#1;
+
+		// Prospect should be yellow
+		`ASSERT_EQ(lw, RED, "Washington light should be red while Prospect is yellow!");
+		`ASSERT_EQ(lp, YLW, "Prospect light should be yellow (green should last exactly 20 seconds)!");
+
+		// Wait for light to change
+		$display("\nWaiting 5 seconds (Washington -> GREEN)...");
+		@(posedge clk); #1;
+
+		// Washington should be green
+		`ASSERT_EQ(lw, GRN, "Washington light should be green!");
+		`ASSERT_EQ(lp, RED, "Prospect light should be red when Washington is green!");
+
+		// Washington green for 20 seconds
+		$display("\nWaiting 20 seconds, cars still present (Washington -> YELLOW)...");
+		@(posedge clk); // 5  seconds elapsed
+		@(posedge clk); // 10 seconds elapsed
+		@(posedge clk); // 15 seconds elapsed
+		@(posedge clk); // 20 seconds elapsed
+		#1;
+
+		// Washington should be yellow
+		`ASSERT_EQ(lw, YLW, "Washington light should be yellow now that car has arrived and >=20 seconds have elapsed!");
+		`ASSERT_EQ(lp, RED, "Prospect light should be red when Washington is yellow!");
+
+		$display("\nTESTS COMPLETED (%d FAILURES)", errors);
+		$finish;
+	end
+
+endmodule

@@ -1,0 +1,612 @@
+
+//==============================================================================
+// Datapath for Simon Project
+//==============================================================================
+
+module SimonDatapath(
+	// External Inputs
+	input        clk,           // Clock
+	input        level,         // Switch for setting level
+	input  [3:0] pattern,
+	input        rst,       // Switches for creating pattern
+    
+	// Datapath Control Signals
+	// input     control1;
+    input Count_rst,
+    input Count_inc,
+    input Size_rst,
+    input Size_inc,
+    
+    input Led_mux_sel,
+   
+
+ 
+    
+	// Datapath Outputs to Control
+	// output    signal1;
+	output count_end,// count is over n=i 
+	output pattern_eq_rdata,// pattern matches input 
+	output mem_full,
+	
+
+	// External Outputs
+	output [3:0] pattern_leds,   // LED outputs for pattern
+	output reg level_reg
+
+);
+
+	// Declare Local Vars Here
+   	
+   	 //wires 
+   	 // wires 
+	wire [3:0] r_data; 
+	
+	
+	reg [5:0] size;
+	reg [5:0] count;
+	
+
+   	
+	//----------------------------------------------------------------------
+	// Internal Logic -- Manipulate Registers, ALU's, Memories Local to
+	// the Datapath
+	//---------------------------------------------------------------------
+    
+    always @(posedge clk) begin 
+    level_reg <= level_reg;
+    if (rst) level_reg <= level;
+    end
+    
+    
+    
+	always @(posedge clk) begin
+	   if (rst) begin
+	   size <= 7'd0;
+	   count <= 7'd0;
+	   
+	   end
+		// Sequential Internal Logic Here
+     if (Size_inc) begin // writing 
+        size <= size + 7'd1;
+        end 
+        
+         if(Count_rst) begin // reading 
+        count <= 7'd0;
+        end 
+        
+    else if (Count_inc) begin
+        count <= count + 7'd1;
+        end 
+  
+         end 
+         
+
+    
+    
+	//end
+
+	// 64-entry 4-bit memory (from Memory.v) -- Fill in Ports!
+	Memory mem(
+		.clk     (clk),
+		.rst     (rst),
+		.r_addr  (count),
+		.w_addr  (size),
+		.w_data  (pattern),
+		.w_en    (Size_inc),
+		.r_data  (r_data)
+	);
+
+	//----------------------------------------------------------------------
+	// Output Logic -- Set Datapath Outputs
+	
+	assign pattern_eq_rdata = (r_data == pattern);
+	assign count_end =  size <= count + 1; //(count == size-1);
+	assign mem_full = (size == 64);
+	assign pattern_leds = Led_mux_sel ? pattern : r_data; // look at verilog tutiral false and question amrk id selct signal is true then pattern leds will show pattern 
+	
+	
+	
+
+endmodule
+
+
+//==============================================================================
+// Control Module for Simon Project
+//==============================================================================
+
+module SimonControl(
+	// External Inputs
+	input        clk,           // Clock
+	input        rst,           // Reset
+    input  [3:0] pattern,
+         // Switches for creating pattern
+
+	// Datapath Inputs
+	// input     localin1,
+    input count_end,// count is over n=i 
+	input pattern_eq_rdata,// pattern matches input 
+	
+	input mem_full,
+	    input level_reg,
+
+	
+	
+	// Datapath Control Outputs
+	// output    control1,
+    output reg  Count_rst,
+    output reg  Count_inc,
+   // wrap arroung when full 
+    output reg  Size_rst,
+    output reg  Size_inc,
+    output reg  mem_Wen,
+    output reg  Led_mux_sel,
+    
+        
+	// External Outputs
+	output reg [2:0] mode_leds
+);
+
+	// Declare Local Vars Here
+	 reg [2:0] state; 
+   	 reg [2:0] next_state;
+
+	// LED Light Parameters
+	localparam LED_MODE_INPUT    = 3'b001;
+	localparam LED_MODE_PLAYBACK = 3'b010;
+	localparam LED_MODE_REPEAT   = 3'b100;
+	localparam LED_MODE_DONE     = 3'b111;
+
+	
+	// Declare State Names Here
+	//localparam STATE_ONE = 2'd0;
+
+	localparam STATE_INPUT = 4'd1;
+	localparam STATE_PLAYBACK = 4'd2;
+	localparam STATE_REPEAT = 4'd3;
+	localparam STATE_DONE = 4'd4;
+	
+	
+	// Output Combinational Logic
+	
+	
+	//control signals 
+	always @( * ) begin
+		// Set defaults
+		// signal_one = 0; ..
+        Count_rst=0;
+        Count_inc=0;
+        Size_rst=0;
+        Size_inc=0;
+        mem_Wen=0;
+        Led_mux_sel=0;	
+        
+        
+        
+        
+      
+      case(state) 
+         STATE_INPUT: begin 
+         Led_mux_sel= 1; 
+         Size_inc= (pattern_legal & ~level_reg) | (level_reg);
+         Count_rst= 1;
+         mode_leds= LED_MODE_INPUT;
+      end
+           
+         STATE_PLAYBACK: begin 
+         Led_mux_sel= 0; 
+         Count_inc=1;
+         mode_leds= LED_MODE_PLAYBACK;
+      end  
+         
+         STATE_REPEAT: begin 
+         Led_mux_sel= 1; 
+         mode_leds= LED_MODE_REPEAT;
+         
+         
+      end  
+          
+         STATE_DONE: begin 
+         Count_inc=1;
+         Led_mux_sel= 0;
+         mode_leds= LED_MODE_DONE;
+      end
+   
+        	
+	endcase
+	end
+	
+	
+
+    always @( * ) begin
+    if( state== STATE_PLAYBACK && next_state == STATE_REPEAT)
+    Count_rst=1;
+    
+    end
+    
+    always @( * ) begin
+    if( state== STATE_DONE && count_end==1)
+    Count_rst=1;
+    
+    end
+    
+   
+    
+    
+	// Next State Combinational Logic
+
+	
+
+	always @( * ) begin
+	
+	   next_state= state;
+		// Write your Next State Logic Here
+		case (state) 
+		  STATE_INPUT: begin 
+		      if ((pattern_legal & ~level_reg) | (level_reg)) begin
+		  next_state = STATE_PLAYBACK;
+		  
+		  end
+		 end
+		STATE_PLAYBACK: begin 
+		
+		      if (count_end) begin
+		  next_state = STATE_REPEAT;
+		  end
+		      else if (~count_end) begin 
+		  next_state = STATE_PLAYBACK;
+		  
+		  
+		  end  
+		end
+		
+		STATE_REPEAT: begin
+		  if (~pattern_eq_rdata) begin
+		  next_state = STATE_DONE;
+		  end 
+		  
+		  else if (pattern_eq_rdata & count_end) begin
+		  next_state = STATE_INPUT;
+		  end
+		
+		  else if (~count_end & pattern_eq_rdata) begin 
+		  next_state = STATE_REPEAT;
+		  end
+		  
+		  end
+		  
+		  
+		  
+		STATE_DONE: begin
+		 
+		  next_state = STATE_DONE;
+		
+		end
+		
+		endcase 
+		end
+       
+
+	// State Update Sequential Logic
+	always @(posedge clk) begin
+		if (rst) begin
+			state<= STATE_INPUT;
+		end
+		else begin
+			state <= next_state;
+		end
+	end
+	
+	
+	 assign pattern_legal = pattern && !(pattern & (pattern-1));
+
+endmodule
+//==============================================================================
+// 64-entry 4-bit memory
+//==============================================================================
+
+module Memory
+#(
+	parameter N_ELEMENTS = 64,
+	parameter ADDR_WIDTH = 6,
+	parameter DATA_WIDTH = 4
+)(
+	// Inputs
+	input                   clk,    // Clock
+	input                   rst,    // Reset (All entries -> 0)
+	input  [ADDR_WIDTH-1:0] r_addr, // Read Addresss
+	input  [ADDR_WIDTH-1:0] w_addr, // Write Address
+	input  [DATA_WIDTH-1:0] w_data, // Write Data
+	input                   w_en,   // Write Enable
+
+	// Outputs
+	output [DATA_WIDTH-1:0] r_data  // Read Data
+);
+
+	// Memory Unit
+	reg [DATA_WIDTH-1:0] mem[N_ELEMENTS:0];
+
+	// Continuous Read
+	assign r_data = mem[r_addr];
+
+	// Synchronous Reset + Write
+	genvar i;
+	generate
+		for (i = 0; i < N_ELEMENTS; i = i + 1) begin : wport
+			always @(posedge clk) begin
+				if (rst) begin
+					mem[i] <= 0;
+				end
+				else if (w_en && w_addr == i) begin
+					mem[i] <= w_data;
+				end
+			end
+		end
+	endgenerate
+
+endmodule
+
+//==============================================================================
+// Simon Module for Simon Project
+//==============================================================================
+
+module Simon(
+	input        pclk,
+	input        rst,
+	input        level,
+	input  [3:0] pattern,
+
+	output [3:0] pattern_leds,
+	output [2:0] mode_leds
+);
+
+	// Declare local connections here
+	// wire localconn1; ...
+wire Count_rst;
+wire Count_inc;
+
+wire Size_rst;
+wire Size_inc;
+wire Led_mux_sel;
+wire count_end;
+wire pattern_eq_rdata;
+wire mem_full;
+
+
+
+
+	// Datapath -- Add port connections
+	SimonDatapath dpath(
+		.clk           (pclk),
+		.rst           (rst),  
+		.level         (level),
+		.pattern       (pattern),
+        .Count_rst     (Count_rst),
+        .level_reg      (level_reg),
+        .Count_inc     (Count_inc),
+          // wrap arroung when full 
+        .Size_rst      (Size_rst),
+        .Size_inc      (Size_inc),     
+        .Led_mux_sel   (Led_mux_sel),
+        .count_end      (count_end),// count is over n=i 
+        	    .pattern_leds  (pattern_leds),
+
+        .pattern_eq_rdata (pattern_eq_rdata),
+        .mem_full       (mem_full)
+	 
+	
+        );
+
+
+	
+	// Control -- Add port connections
+	SimonControl ctrl(
+		.clk           (pclk),
+		.rst           (rst),
+		.pattern(pattern),
+		 .level_reg      (level_reg),
+
+        .Count_rst     (Count_rst),
+        .Count_inc     (Count_inc),
+         // wrap arroung when full 
+        .Size_rst      (Size_rst),
+        .Size_inc      (Size_inc),     
+        .Led_mux_sel   (Led_mux_sel),
+	    .mode_leds     (mode_leds),
+
+        .count_end      (count_end),// count is over n=i 
+        .pattern_eq_rdata (pattern_eq_rdata),
+        .mem_full       (mem_full)
+
+		// ...
+	);
+
+endmodule
+
+
+
+
+
+
+
+
+//===============================================================================
+// Testbench Module for Simon
+//===============================================================================
+`timescale 1ns/100ps
+
+`define ASSERT_EQ(ONE, TWO, MSG)               \
+	begin                                      \
+		if ((ONE) !== (TWO)) begin             \
+			$display("\t[FAILURE]:%s", (MSG)); \
+			errors = errors + 1;               \
+		end                                    \
+	end #0
+
+`define SET(VAR, VALUE) $display("Setting %s to %s...", "VAR", "VALUE"); #1; VAR = (VALUE); #1
+
+`define CLOCK $display("Pressing uclk..."); #1; clk = 1; #1; clk = 0; #1
+
+`define SHOW_MODE(MODE) $display("\nEntering Mode: %s\n-----------------------------------", MODE)
+
+module SimonTATest;
+
+	// Local Vars
+	reg clk = 0;
+	reg sysclk = 0;
+	reg rst = 0;
+	reg level = 0;
+	reg [3:0] pattern = 4'd0;
+	wire [2:0] mode_leds;
+	wire [3:0] pattern_leds;
+
+	// Error Counts
+	reg [7:0] errors = 0;
+
+	// LED Light Parameters
+	localparam LED_MODE_INPUT    = 3'b001;
+	localparam LED_MODE_PLAYBACK = 3'b010;
+	localparam LED_MODE_REPEAT   = 3'b100;
+	localparam LED_MODE_DONE     = 3'b111;
+
+
+	// Simon Module
+	Simon simon(
+		.pclk         (clk),
+		.rst          (rst),
+		.level        (level),
+		.pattern      (pattern),
+
+		.pattern_leds (pattern_leds),
+		.mode_leds    (mode_leds)
+	);
+
+	// Main Test Logic
+	initial begin
+		// Reset the game
+		`SHOW_MODE("Unknown");
+		`SET(rst, 1);
+		`CLOCK;
+
+		//-----------------------------------------------
+		// Input Mode
+		// ----------------------------------------------
+		`SHOW_MODE("Input");
+		`SET(rst, 0);
+		`ASSERT_EQ(mode_leds, LED_MODE_INPUT, "Mode should be input after reset!");
+		`ASSERT_EQ(pattern_leds, pattern, "Pattern LEDs should match switches in input mode!");
+
+		// Modify Switches
+		`SET(pattern, 4'b0001);
+		`ASSERT_EQ(pattern_leds, pattern, "Pattern LEDs should match switches in input mode!");
+
+		// Insert Pattern
+		`CLOCK;
+
+		//-----------------------------------------------
+		// Playback Mode
+		// ----------------------------------------------
+		`SHOW_MODE("Playback");
+		`ASSERT_EQ(mode_leds, LED_MODE_PLAYBACK, "Mode should go to playback after input!");
+
+		// Modify Switches
+		`SET(pattern, 4'b0000);
+		`ASSERT_EQ(pattern_leds, 4'b0001, "Pattern LEDs should show first pattern in sequence!");
+
+		// Advance
+		`CLOCK;
+
+		//-----------------------------------------------
+		// Repeat Mode
+		// ----------------------------------------------
+		`SHOW_MODE("Repeat");
+		`ASSERT_EQ(mode_leds, LED_MODE_REPEAT, "Mode should go to repeat after playback has ended!");
+
+		// Modify Switches
+		`SET(pattern, 4'b0001);
+		`ASSERT_EQ(pattern_leds, 4'b0001, "Pattern LEDs should match switches in repeat mode");
+
+		// Insert Guess
+		`CLOCK;
+
+		//-----------------------------------------------
+		// Input Mode
+		// ----------------------------------------------
+		`SHOW_MODE("Input");
+		`ASSERT_EQ(mode_leds, LED_MODE_INPUT, "Mode should be input after successful repeat!");
+
+		// Modify level during game
+		`SET(level, 1);
+
+		// Modify Switches
+		`SET(pattern, 4'b1010);
+
+		// Attempt to Insert Pattern
+		`CLOCK;
+
+		// Mode should stay input
+		`ASSERT_EQ(mode_leds, LED_MODE_INPUT, "Mode should remain in input if pattern invalid!");
+
+		// Modify Switches
+		`SET(pattern, 4'b1000);
+
+		// Attempt to Insert Pattern
+		`CLOCK;
+
+		//-----------------------------------------------
+		// Playback Mode
+		// ----------------------------------------------
+		`SHOW_MODE("Playback");
+		`ASSERT_EQ(mode_leds, LED_MODE_PLAYBACK, "Mode should go to playback after input!");
+
+		// Modify Switches
+		`SET(pattern, 4'b0000);
+		`ASSERT_EQ(pattern_leds, 4'b0001, "Pattern LEDs should show first pattern in sequence!");
+
+		// Go to next pattern
+		`CLOCK;
+		`ASSERT_EQ(pattern_leds, 4'b1000, "Pattern LEDs should show second pattern in sequence!");
+
+		// Go to repeat
+		`CLOCK;
+
+		//-----------------------------------------------
+		// Repeat Mode
+		// ----------------------------------------------
+		`SHOW_MODE("Repeat");
+		`ASSERT_EQ(mode_leds, LED_MODE_REPEAT, "Mode should go to repeat after playback has ended!");
+
+		// Insert first guess
+		`SET(pattern, 4'b0001);
+		`CLOCK;
+		`ASSERT_EQ(mode_leds, LED_MODE_REPEAT, "Mode should remain in repeat after first successful guess!");
+
+		// Insert second guess
+		`SET(pattern, 4'b0100);
+		`CLOCK;
+
+		//-----------------------------------------------
+		// Done Mode
+		// ----------------------------------------------
+		`SHOW_MODE("Done");
+		`ASSERT_EQ(mode_leds, LED_MODE_DONE, "Mode should go to done after failed guess!");
+
+		// Modify Switches
+		`SET(pattern, 4'b0000);
+		`ASSERT_EQ(pattern_leds, 4'b0001, "Pattern LEDs should show first pattern in sequence!");
+
+		// Go to next pattern
+		`CLOCK;
+		`ASSERT_EQ(pattern_leds, 4'b1000, "Pattern LEDs should show second pattern in sequence!");
+
+		// Wrap Around
+		`CLOCK;
+		`ASSERT_EQ(pattern_leds, 4'b0001, "Pattern LEDs should show first pattern in sequence!");
+
+		`ASSERT_EQ(mode_leds, LED_MODE_DONE, "Mode should stay in done after failed guess!");
+
+		$display("\nTESTS COMPLETED (%d FAILURES)", errors);
+		$finish;
+	end
+
+endmodule
+

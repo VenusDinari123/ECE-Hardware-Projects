@@ -1,0 +1,162 @@
+module MemBlock(
+  input x,
+  input y,
+  output q,
+  output nq
+);
+
+  // INSERT LOGIC HERE
+// Wires to connect the latches
+  wire top_q, top_nq, bottom_q, bottom_nq;
+
+  // Top latch inputs
+  assign bottom_ns = x && top_nq;       // Top ns depends on x and the negation of mid_q
+  
+  // Instantiate the top SR latch- which means assign all teh connections
+  Latch top_latch (
+    .ns(bottom_nq),
+    .nr(x),
+    .q(top_q),
+    .nq(top_nq)
+  );
+
+  // Instantiate the middle SR latch
+  Latch mid_latch (
+    .ns(top_nq),        // Mid ns connected to x
+    .nr(bottom_q),        // Mid nr connected to top latch output q
+    .q(q),
+    .nq(nq)
+  );
+
+  // Instantiate the bottom SR latch
+  Latch bottom_latch (
+    .ns(bottom_ns),        // Bottom ns connected to y
+    .nr(y),    // Bottom nr connected to middle latch output mid_q
+    .q(bottom_q),
+    .nq(bottom_nq)
+  );
+  
+endmodule
+module Latch(
+  input ns,
+  input nr,
+  output q,
+  output nq
+);
+
+  reg q;
+  reg nq;
+
+  always @(*) begin
+    if (~ns & nr) begin
+      q = 1;    // Set When ns is low and nr is high, q is set to 1
+      nq = 0;   // Complementary output nq is set to 0
+    end
+    else if (ns & ~nr) begin
+      q = 0;    // Reset When nr is low and ns is high, q is set to 0
+      nq = 1;   // Complementary output nq is set to 1
+    end
+     else if (~ns & ~nr) begin
+      q = 1;    
+      nq = 1;   
+    end
+    else if (ns & nr) begin
+      // Hold: When both inputs are high (1,1) Do nothing, retain previous q and nq values
+
+    end
+                              // (0,0) condition can be ignored as stated
+  end
+
+endmodule
+
+//==============================================================================
+// Testbench for Latch
+//==============================================================================
+
+module Latch_test;
+
+  // Local variables
+  reg a, b;
+  wire f, g;
+
+  // Latch module
+  Latch latch(
+    .ns(a),
+    .nr(b),
+    .q(f),
+    .nq(g)
+  );
+
+  // Main test
+  initial begin
+    a = 0;
+    b = 0;
+
+    #1
+    b = 1;
+    #1
+    b = 0;
+    #1
+    a = 1;
+    #1
+    a = 0;
+    #1
+    a = 1;
+    #1
+    b = 1;
+    #1
+    a = 0;
+    #1
+    a = 1;
+    #1
+    b = 0;
+    #1
+    b = 1;
+    #1
+    a = 0;
+    b = 0;
+    #1
+
+    $finish;
+  end
+
+endmodule
+module Latch(
+  input ns,   // Not set (S-bar)
+  input nr,   // Not reset (R-bar)
+  output q,   // Output Q
+  output nq   // Output Q-bar (complement of Q)
+);
+
+  
+
+  // Implementing the NAND gates for the SR latch
+  //assign ~(ns & nq);  // First NAND gate (input ns and nq)
+ // assign ~(nr & q);   // Second NAND gate (input nr and q)
+
+  // Outputs
+  assign q = ~(ns & nq);           // Q output
+  assign nq = ~(nr & q);          // Q-bar (complment of q) output
+
+
+
+
+endmodule
+module MemBlock(
+  input x,
+  input y,
+  output q,
+  output nq
+);
+
+  reg q;
+  reg nq;
+
+  always @(posedge x or y) begin
+    // INSERT PROCEDURE HERE
+    q=y;
+    nq=~q;
+    
+  end
+
+endmodule
